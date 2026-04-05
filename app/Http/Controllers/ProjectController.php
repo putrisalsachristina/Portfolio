@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ProjectController extends Controller
 {
@@ -29,7 +30,17 @@ class ProjectController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $data = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'github' => 'nullable',
+            'link' => 'nullable',
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048', // Validasi untuk gambar
+        ]);
+
+        $data['image'] = $request->file('image')->store('projects', 'public'); // Simpan gambar ke storage
+        Project::create($data);
+        return redirect()->route('project.index')->with('success', 'Project berhasil ditambahkan!');
     }
 
     /**
@@ -53,7 +64,27 @@ class ProjectController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
+        $project = Project::findOrFail($id);
+        
+        $data = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'github' => 'nullable',
+            'link' => 'nullable',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ]);
+
+        // Handle image update
+        if ($request->hasFile('image')) {
+            // Delete old image if exists
+            if ($project->image && Storage::disk('public')->exists($project->image)) {
+                Storage::disk('public')->delete($project->image);
+            }
+            $data['image'] = $request->file('image')->store('projects', 'public');
+        }
+
+        $project->update($data);
+        return redirect()->route('project.index')->with('success', 'Project berhasil diperbarui!');
     }
 
     /**
@@ -61,6 +92,15 @@ class ProjectController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $project = Project::findOrFail($id);
+        
+        // Delete the image file if it exists
+        if ($project->image && Storage::disk('public')->exists($project->image)) {
+            Storage::disk('public')->delete($project->image);
+        }
+        
+        $project->delete();
+        
+        return redirect()->route('project.index')->with('success', 'Project berhasil dihapus!');
     }
 }
